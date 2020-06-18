@@ -1,0 +1,24 @@
+{
+  "name": "@kohanajs/core-mvc",
+  "version": "1.0.0",
+  "description": "The MVC classes inspired from Kohana framework's pattern",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.com/kohanajs/core-mvc.git"
+  },
+  "author": "Kojin Nakana",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://gitlab.com/kohanajs/core-mvc/-/issues"
+  },
+  "homepage": "https://gitlab.com/kohanajs/core-mvc",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "jest": "^26.0.1"
+  }
+}
