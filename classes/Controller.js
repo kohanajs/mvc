@@ -39,17 +39,9 @@ class Controller{
     return this.request.params.action || 'index';
   }
 
-  async before(){
-    for(let i = 0; i < this.mixins.length; i++){
-      await this.mixins[i].before();
-    }
-  }
+  async before(){}
 
-  async after(){
-    for(let i = 0; i < this.mixins.length; i++){
-      await this.mixins[i].after();
-    }
-  }
+  async after(){}
 
   /**
    * Loop the mixins and run the action
@@ -82,15 +74,27 @@ class Controller{
         };
       }
 
+      //stage 1 : before
       if(!this.headerSent){
+        for(let i = 0; i < this.mixins.length; i++){
+          await this.mixins[i].before();
+        }
         await this.before();
       }
 
+      //stage 2 : action
       if(!this.headerSent){
         await this.mixinsAction(action);
+        await this[action]();
       }
-      if(!this.headerSent)await this[action]();
-      if(!this.headerSent)await this.after();
+
+      //stage 3 : after
+      if(!this.headerSent){
+        for(let i = 0; i < this.mixins.length; i++){
+          await this.mixins[i].after();
+        }
+        await this.after();
+      }
 
     }catch(err){
       this.serverError(err);

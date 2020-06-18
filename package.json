@@ -1,6 +1,6 @@
 {
   "name": "@kohanajs/core-mvc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The MVC classes inspired from Kohana framework's pattern",
   "main": "index.js",
   "scripts": {
@@ -16,8 +16,7 @@
     "url": "https://gitlab.com/kohanajs/core-mvc/-/issues"
   },
   "homepage": "https://gitlab.com/kohanajs/core-mvc",
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "jest": "^26.0.1"
   }
