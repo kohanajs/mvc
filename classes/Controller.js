@@ -12,12 +12,15 @@ class Controller{
    * @param {Request} request
    */
   constructor(request){
-    this.mixins = [];
-    this.mixin = new Map();//list of behaviour added by mixin
-
+    //private
     this.headerSent = false;
     this.request = request;
+    this.mixins = [];
 
+    //protected
+    this.mixin = new Map();//list of behaviour added by mixin
+
+    //public
     this.body = '';
     this.headers = {};
     this.cookies = [];// []{name, value, options}
