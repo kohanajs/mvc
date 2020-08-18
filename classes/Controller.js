@@ -7,24 +7,24 @@
  */
 
 class Controller{
+  #headerSent = false;
+  #request;
+  #mixins = [];
+
+  //list of behaviour added by mixin
+  mixin = new Map();
+  body = '';
+  headers = {};
+  cookies = [];
+  status = 200;
+
   /**
    *
    * @param {Request} request
    */
   constructor(request){
     //private
-    this.headerSent = false;
-    this.request = request;
-    this.mixins = [];
-
-    //protected
-    this.mixin = new Map();//list of behaviour added by mixin
-
-    //public
-    this.body = '';
-    this.headers = {};
-    this.cookies = [];// []{name, value, options}
-    this.status = 200;
+    this.#request = request;
   }
 
   /**
@@ -33,13 +33,16 @@ class Controller{
    * @returns {ControllerMixin}
    */
   addMixin(mixin){
-    this.mixins.push(mixin);
+    this.#mixins.push(mixin);
     return mixin;
   }
 
   getAction() {
-    if(!this.request.params)return 'index';
-    return this.request.params.action || 'index';
+    return this.#request.params?.action || 'index';
+  }
+
+  get headerSent(){
+    return this.#headerSent;
   }
 
   async before(){}
@@ -52,9 +55,7 @@ class Controller{
    * @returns {Promise<void>}
    */
   async mixinsAction(fullActionName){
-    for(let i = 0; i < this.mixins.length; i++){
-      await this.mixins[i].execute(fullActionName);
-    }
+    await Promise.all(this.#mixins.map(async x => await x.execute(fullActionName)))
   }
 
   /**
@@ -78,24 +79,20 @@ class Controller{
       }
 
       //stage 1 : before
-      if(!this.headerSent){
-        for(let i = 0; i < this.mixins.length; i++){
-          await this.mixins[i].before();
-        }
+      if(!this.#headerSent){
+        await Promise.all(this.#mixins.map(async x => await x.before()))
         await this.before();
       }
 
       //stage 2 : action
-      if(!this.headerSent){
+      if(!this.#headerSent){
         await this.mixinsAction(action);
         await this[action]();
       }
 
       //stage 3 : after
-      if(!this.headerSent){
-        for(let i = 0; i < this.mixins.length; i++){
-          await this.mixins[i].after();
-        }
+      if(!this.#headerSent){
+        await Promise.all(this.#mixins.map(async x => await x.after()))
         await this.after();
       }
 
@@ -143,7 +140,7 @@ class Controller{
    * @param {Number} code
    */
   exit(code){
-    this.headerSent = true;
+    this.#headerSent = true;
     this.status = code;
   }
 

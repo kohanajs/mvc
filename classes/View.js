@@ -7,6 +7,10 @@
  */
 
 class View{
+  static defaultViewClass = View;
+  static cache = {}
+  static globalData = {};
+
   static factory(file, data){
     return new View(file, data);
   }
@@ -41,10 +45,6 @@ class View{
     View.caches = {};
   }
 }
-View.defaultViewClass = View;
-
-View.clearCache();
-View.globalData = {};
 
 Object.freeze(View.prototype);
 module.exports = View;
