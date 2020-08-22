@@ -8,10 +8,10 @@
 
 class Controller{
   #headerSent = false;
-  #request;
   #mixins = [];
 
   //list of behaviour added by mixin
+  request;
   mixin = new Map();
   body = '';
   headers = {};
@@ -24,21 +24,19 @@ class Controller{
    */
   constructor(request){
     //private
-    this.#request = request;
+    this.request = request;
   }
 
   /**
    *
-   * @param {ControllerMixin} mixin
-   * @returns {ControllerMixin}
+   * @param {Mime} mixin
    */
   addMixin(mixin){
     this.#mixins.push(mixin);
-    return mixin;
   }
 
   getAction() {
-    return this.#request.params?.action || 'index';
+    return this.request.params?.action || 'index';
   }
 
   get headerSent(){

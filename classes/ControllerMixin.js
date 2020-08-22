@@ -14,6 +14,8 @@ class ControllerMixin {
    */
   constructor(client){
     this.client = client;
+    this.mixin = client.mixin;
+    this.request = client.request;
   }
 
   /**
@@ -22,8 +24,8 @@ class ControllerMixin {
    * @param {*} value
    */
   addBehaviour(property, value){
-    if(!!this.client.mixin.get(property))throw new Error(`Behaviour ${property} already added to client.`);
-    this.client.mixin.set(property, value);
+    if(!!this.mixin.get(property))throw new Error(`Behaviour ${property} already added to client.`);
+    this.mixin.set(property, value);
   }
 
   async before(){}
