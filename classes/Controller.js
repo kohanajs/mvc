@@ -12,7 +12,8 @@ class Controller{
   #mixins = [];
 
   //list of behaviour added by mixin
-  request;
+  request = null;
+  error = null;
   mixin = new Map();
   body = '';
   headers = {};
@@ -113,6 +114,7 @@ class Controller{
    */
   serverError(err){
     this.body = `<pre>500 / ${ err.message }\n\n ${ err.stack }</pre>`;
+    this.error = err;
     this.exit(500);
   }
 
