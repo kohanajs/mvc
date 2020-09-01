@@ -14,7 +14,6 @@ class Controller{
   //list of behaviour added by mixin
   request = null;
   error = null;
-  mixin = new Map();
   body = '';
   headers = {};
   cookies = [];
@@ -35,6 +34,7 @@ class Controller{
    */
   addMixin(mixin){
     this.#mixins.push(mixin);
+    return mixin.exports;
   }
 
   getAction() {

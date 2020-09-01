@@ -5,12 +5,21 @@ class TestController extends Controller{
 }
 
 class TestMixin extends ControllerMixin{
-  async before() {
-    this.addBehaviour('foo', 'bar');
+  constructor(client) {
+    super(client);
+
+    this.exports = {
+      foo: 'bar',
+      who: ()=>this.getThis()
+    }
   }
 
   async action_error(){
     throw new Error('Expected Error');
+  }
+
+  getThis(){
+    return this;
   }
 }
 
@@ -25,11 +34,8 @@ describe('test Controller', () => {
 
   test('add mixin', async() => {
     const ins = new Controller({});
-    ins.addMixin(new TestMixin(ins));
-    expect(ins.mixin.get('foo')).toBe(undefined);
-
-    await ins.execute('index');
-    expect(ins.mixin.get('foo')).toBe('bar');
+    Object.assign(ins, ins.addMixin(new TestMixin(ins)));
+    expect(ins.foo).toBe('bar');
   });
 
   test('get action', async()=>{
@@ -97,12 +103,9 @@ describe('test Controller', () => {
     expect(ins.status).toBe(403);
   });
 
-  test('error on duplicate mixin behaviour', async() =>{
+  test('mixin this', async() =>{
     const ins = new Controller({});
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin(ins));
-
-    await ins.execute('index');
-    expect(ins.status).toBe(500);
+    Object.assign(ins, ins.addMixin(new TestMixin(ins)));
+    expect(ins.who().constructor.name).toBe('TestMixin');
   })
 });
