@@ -1,6 +1,6 @@
 {
   "name": "@kohanajs/core-mvc",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "The MVC classes inspired from Kohana framework's pattern",
   "main": "index.js",
   "scripts": {
