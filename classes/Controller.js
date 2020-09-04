@@ -6,6 +6,7 @@
  *
  */
 const ControllerMixin = require('./ControllerMixin');
+const $ = ref => (typeof ref === 'function')? ref() : ref;
 
 class Controller{
   #headerSent = false;
@@ -34,7 +35,48 @@ class Controller{
    */
   addMixin(mixin){
     this.#mixins.push(mixin);
+    this.#merge(mixin.exports);
     return mixin.exports;
+  }
+
+  #mixinBranches = new Map();
+  /**
+   * merge exports method and properties after add mixin
+   * @param {object} mixinExport
+   */
+  #merge(mixinExport){
+    const exp = Object.assign({}, mixinExport);
+    //check mixinExport keys exist
+    Object.keys(exp).forEach(key => {
+      if(this[key]){
+        //key exists..
+        //run once
+        if(!this.#mixinBranches.get(key)){
+          const branch = [this[key]];//copy old handler to branch
+          this.#mixinBranches.set(key, branch);
+
+          //handler proxy
+          this[key] = ()=> {
+            let result = null;
+            //dereference all the branches
+            branch.forEach(ref =>{
+              const value = $(ref);
+              if(value == null)return;
+              if(result != null)throw new Error(`conflict mixin export value found: (${value}) , (${result})`);
+              result = value;
+            });
+
+            return result;
+          }
+        }
+
+        this.#mixinBranches.get(key).push(exp[key]);
+        delete exp[key];
+      }
+    });
+
+    Object.assign(this, exp);
+    return mixinExport;
   }
 
   getAction() {
@@ -71,8 +113,8 @@ class Controller{
       if(this[action] === undefined){
         this.notFound(`${ this.constructor.name }::${action} not found`);
         return {
-          status: this.status,
-          body: this.body,
+          status  : this.status,
+          body    : this.body,
           headers : this.headers,
           cookies : this.cookies,
         };

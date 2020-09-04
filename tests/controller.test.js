@@ -1,3 +1,4 @@
+const $ = ref => (typeof ref === 'function')? ref() : ref;
 const Controller = require('../classes/Controller');
 const ControllerMixin = require('../classes/ControllerMixin');
 class TestController extends Controller{
@@ -5,12 +6,14 @@ class TestController extends Controller{
 }
 
 class TestMixin extends ControllerMixin{
+  name = null;
   constructor(client) {
     super(client);
 
     this.exports = {
       foo: 'bar',
-      who: ()=>this.getThis()
+      who: () => this,
+      name: ()=> this.name,
     }
   }
 
@@ -20,6 +23,33 @@ class TestMixin extends ControllerMixin{
 
   getThis(){
     return this;
+  }
+
+  async action_test1(){
+    this.name = 'hello 1';
+  }
+
+  async action_test3(){
+    this.name = 'ouch 1';
+  }
+}
+
+class TestMixin2 extends ControllerMixin{
+  name = null;
+  constructor(client) {
+    super(client);
+
+    this.exports = {
+      name: () => this.name,
+    }
+  }
+
+  async action_test2(){
+    this.name = 'hello 2';
+  }
+
+  async action_test3(){
+    this.name = 'ouch 2';
   }
 }
 
@@ -105,7 +135,44 @@ describe('test Controller', () => {
 
   test('mixin this', async() =>{
     const ins = new Controller({});
-    Object.assign(ins, ins.addMixin(new TestMixin(ins)));
-    expect(ins.who().constructor.name).toBe('TestMixin');
+    ins.addMixin(new TestMixin(ins));
+    expect($(ins.who).constructor.name).toBe('TestMixin');
+  })
+
+  test('branch mixin result', async()=>{
+    const ins = new Controller({});
+    ins.action_test1 = async()=>{}
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test1');
+
+    expect($(ins.name)).toBe('hello 1');
+  })
+
+  test('branch mixin result 2', async()=>{
+    const ins = new Controller({});
+    ins.action_test2 = async()=>{}
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test2');
+
+    expect($(ins.name)).toBe('hello 2');
+  })
+
+  test('branch mixin result 3', async()=>{
+    const ins = new Controller({});
+    ins.action_test3 = async()=>{}
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test3');
+
+    try{
+      const name = $(ins.name);
+    }catch (e){
+      expect(e.message).toBe('conflict mixin export value found: (ouch 2) , (ouch 1)');
+    }
   })
 });

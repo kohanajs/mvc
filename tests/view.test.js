@@ -37,7 +37,8 @@ describe('test View', () => {
   });
 
   test('cache', async() => {
-
+    View.clearCache();
+    expect(JSON.stringify(View.caches)).toBe('{}')
   });
 
   test('view base class cannot be freeze', async()=>{
