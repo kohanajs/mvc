@@ -97,7 +97,9 @@ class Controller{
    * @returns {Promise<void>}
    */
   async mixinsAction(fullActionName){
-    await Promise.all(this.#mixins.map(async x => await x.execute(fullActionName)))
+    for(let i = 0; i< this.#mixins.length; i++){
+      await this.#mixins[i].execute(fullActionName);
+    }
   }
 
   /**
@@ -122,7 +124,10 @@ class Controller{
 
       //stage 1 : before
       if(!this.#headerSent){
-        await Promise.all(this.#mixins.map(async x => await x.before()))
+        for(let i = 0; i< this.#mixins.length; i++){
+          await this.#mixins[i].before();
+        }
+
         await this.before();
       }
 
@@ -134,7 +139,10 @@ class Controller{
 
       //stage 3 : after
       if(!this.#headerSent){
-        await Promise.all(this.#mixins.map(async x => await x.after()))
+        for(let i = 0; i< this.#mixins.length; i++){
+          await this.#mixins[i].after();
+        }
+
         await this.after();
       }
 
