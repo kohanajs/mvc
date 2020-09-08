@@ -125,26 +125,31 @@ class Controller{
       //stage 1 : before
       if(!this.#headerSent){
         for(let i = 0; i< this.#mixins.length; i++){
+          if(this.#headerSent)break;
           await this.#mixins[i].before();
         }
-
-        await this.before();
       }
+      if(!this.#headerSent) await this.before();
 
       //stage 2 : action
       if(!this.#headerSent){
-        await this.mixinsAction(action);
-        await this[action]();
+        for(let i = 0; i< this.#mixins.length; i++){
+          if(this.#headerSent)break;
+          await this.#mixins[i].execute(action);
+        }
       }
+
+      if(!this.#headerSent)await this[action]();
 
       //stage 3 : after
       if(!this.#headerSent){
         for(let i = 0; i< this.#mixins.length; i++){
+          if(this.#headerSent)break;
           await this.#mixins[i].after();
         }
-
-        await this.after();
       }
+
+      if(!this.#headerSent)await this.after();
 
     }catch(err){
       this.serverError(err);
