@@ -20,6 +20,7 @@ class ControllerMixin {
 
   async before(){}
   async after(){}
+  async exit(code){}
 
   /**
    *

@@ -12,7 +12,7 @@ class Controller{
   #headerSent = false;
   #mixins = [];
 
-  //list of behaviour added by mixin
+  //properties
   request = null;
   error = null;
   body = '';
@@ -25,7 +25,6 @@ class Controller{
    * @param {Request} request
    */
   constructor(request){
-    //private
     this.request = request;
   }
 
@@ -113,7 +112,7 @@ class Controller{
       const action = 'action_' + (actionName || this.getAction());
 
       if(this[action] === undefined){
-        this.notFound(`${ this.constructor.name }::${action} not found`);
+        await this.notFound(`${ this.constructor.name }::${action} not found`);
         return {
           status  : this.status,
           body    : this.body,
@@ -152,7 +151,7 @@ class Controller{
       if(!this.#headerSent)await this.after();
 
     }catch(err){
-      this.serverError(err);
+      await this.serverError(err);
     }
 
     return {
@@ -167,46 +166,49 @@ class Controller{
    *
    * @param {Error} err
    */
-  serverError(err){
-    this.body = `<pre>500 / ${ err.message }\n\n ${ err.stack }</pre>`;
+  async serverError(err){
+    this.body = `<pre>500 / ${ err.message }</pre>`;
     this.error = err;
-    this.exit(500);
+    await this.exit(500);
   }
 
   /**
    *
    * @param {string} msg
    */
-  notFound(msg= ''){
+  async notFound(msg= ''){
     this.body = `404 / ${ msg }`;
-    this.exit(404);
+    await this.exit(404);
   }
 
   /**
    *
    * @param {string} location
    */
-  redirect(location){
+  async redirect(location){
     this.headers.location = location;
-    this.exit(302);
+    await this.exit(302);
   }
 
   /**
    *
    * @param {Number} code
    */
-  exit(code){
+  async exit(code){
     this.#headerSent = true;
     this.status = code;
+    for(let i = 0; i< this.#mixins.length; i++){
+      await this.#mixins[i].exit(code);
+    }
   }
 
   /**
    *
    * @param {string} msg
    */
-  forbidden(msg= ''){
+  async forbidden(msg= ''){
     this.body = `403 / ${ msg }`;
-    this.exit(403);
+    await this.exit(403);
   }
 
   async action_index(){
