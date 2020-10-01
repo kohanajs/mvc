@@ -40,40 +40,54 @@ class Controller{
 
   #mixinBranches = new Map();
   /**
-   * merge exports method and properties after add mixin
+   * merge exports to this controller (append method and properties after add mixin)
    * @param {object} mixinExport
    */
   #merge(mixinExport){
+    //make a copy of mixin exports
     const exp = Object.assign({}, mixinExport);
-    //check mixinExport keys exist
+
+    //check mixinExport keys exist,
+    //if exists, branch it
     Object.keys(exp).forEach(key => {
+      /** if key exist, create a branch
+      //eg: mixinORMRead and mixinHandle both export instance
+      //mixinORMRead.action_read
+      //mixinHandle.action_read_by_handle
+      //controller.action_read_by_handle instance will return () => [()=>undefined, ()=>object]
+      //create a function to find first non-null object
+      **/
       if(this[key]){
         //key exists..
-        //run once
+
+        //for first time duplicated key found,
         if(!this.#mixinBranches.get(key)){
           const branch = [this[key]];//copy old handler to branch
           this.#mixinBranches.set(key, branch);
 
           //handler proxy
-          this[key] = ()=> {
-            let result = null;
-            //dereference all the branches
-            branch.forEach(ref =>{
-              const value = $(ref);
-              if(value == null)return;
-              if(result != null)throw new Error(`conflict mixin export value found: (${value}) , (${result})`);
-              result = value;
-            });
+          this[key] = (all = false) => {
+            //branch example , [null, object1, null, object2]
+            //return all, [object1, object2]
+            if(all)return branch.filter(el => ($(el) != null));
 
-            return result;
+            //by cascade rule, return object2
+            for (let i = (branch.length-1); i>=0 ; i--) {
+              const value = $(branch[i]);
+              if(value === null || value === undefined)continue;
+
+              return value;
+            }
           }
         }
 
         this.#mixinBranches.get(key).push(exp[key]);
+        //remove
         delete exp[key];
       }
     });
 
+    //assign to this controller
     Object.assign(this, exp);
     return mixinExport;
   }
