@@ -13,6 +13,7 @@ class Controller{
   #mixins = [];
 
   //properties
+  allowUnknownAction = false;
   request = null;
   error = null;
   body = '';
@@ -124,6 +125,10 @@ class Controller{
     try{
       //guard check function action_* exist
       const action = 'action_' + (actionName || this.getAction());
+
+      if(this.allowUnknownAction && this[action] === undefined){
+        this[action] = async ()=>{};
+      }
 
       if(this[action] === undefined){
         await this.notFound(`${ this.constructor.name }::${action} not found`);
