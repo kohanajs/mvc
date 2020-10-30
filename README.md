@@ -17,4 +17,4 @@ It provides 3 stages to execute a request.
 3. after()
 
 ### ControllerMixin
-Decorator for Controllers to perform additional functionality 
+Decorator for Controllers to perform additional functionality

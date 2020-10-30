@@ -70,7 +70,7 @@ class Controller{
           this[key] = (all = false) => {
             //branch example , [null, object1, null, object2]
             //return all, [object1, object2]
-            if(all)return branch.filter(el => ($(el) != null));
+            if(all)return branch.filter(el => ($(el) != null)).map(el => $(el));
 
             //by cascade rule, return object2
             for (let i = (branch.length-1); i>=0 ; i--) {
@@ -95,10 +95,6 @@ class Controller{
 
   getAction() {
     return this.request.params?.action || 'index';
-  }
-
-  get headerSent(){
-    return this.#headerSent;
   }
 
   async before(){}

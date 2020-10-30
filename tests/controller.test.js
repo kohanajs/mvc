@@ -53,6 +53,48 @@ class TestMixin2 extends ControllerMixin{
   }
 }
 
+class TestMixin3 extends ControllerMixin{
+  constructor(client) {
+    super(client);
+
+    this.exports = {
+      foo: 'tar',
+    }
+  }
+}
+
+class TestMixin4 extends ControllerMixin{
+  name = null;
+  constructor(client) {
+    super(client);
+
+    this.exports = {
+      name: () => this.name,
+    }
+  }
+
+  async action_test2(){
+  }
+}
+
+class TestMixinStopAtBefore extends ControllerMixin{
+  async before() {
+    this.client.exit(503)
+  }
+}
+
+class TestMixinStopAtAction extends ControllerMixin{
+  async action_test2() {
+    this.client.exit(503)
+  }
+}
+
+class TestMixinStopAtAfter extends ControllerMixin{
+  async after() {
+    this.client.exit(503)
+  }
+}
+
 describe('test Controller', () => {
   test('test prototype pollution', async()=>{
     Controller.prototype.foo = () => {
@@ -111,15 +153,6 @@ describe('test Controller', () => {
     expect(ins.status).toBe(403);
   });
 
-  test('check header already sent', async()=>{
-    const ins = new Controller({});
-    expect(ins.headerSent).toBe(false);
-    ins.forbidden('No dogs allowed');
-    expect(ins.headerSent).toBe(true);
-    await ins.execute();
-    expect(ins.headerSent).toBe(true);
-  });
-
   test('not found default message', async()=>{
     const ins = new Controller({});
     ins.notFound();
@@ -174,5 +207,112 @@ describe('test Controller', () => {
     }catch (e){
       expect(e.message).toBe('conflict mixin export value found: (ouch 2) , (ouch 1)');
     }
+  })
+
+  test('mixinAction', async ()=>{
+    const ins = new Controller({});
+    ins.action_test4 = async()=>{
+      await ins.mixinsAction('action_test2')
+    }
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test4');
+
+    expect($(ins.name)).toBe('hello 2');
+  })
+
+  test('allow unknown action', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test2');
+
+    expect($(ins.name)).toBe('hello 2');
+  })
+
+  test('stop other mixins - before', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixinStopAtBefore(ins));
+    ins.addMixin(new TestMixin(ins));
+    const result = await ins.execute('test2');
+
+    expect(result.status).toBe(503);
+  })
+
+  test('stop other mixins - action', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixinStopAtAction(ins));
+    ins.addMixin(new TestMixin(ins));
+    const result = await ins.execute('test2');
+
+    expect(result.status).toBe(503);
+  })
+
+  test('stop other mixins - after', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixinStopAtAfter(ins));
+    ins.addMixin(new TestMixin(ins));
+    const result = await ins.execute('test2');
+
+    expect(result.status).toBe(503);
+  })
+
+  test('override mixin export constant', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin3(ins));
+
+    expect($(ins.foo)).toBe('tar');
+  })
+
+  test('mixin override export thrice', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixin(ins));
+    ins.addMixin(new TestMixin2(ins));
+    ins.addMixin(new TestMixin2(ins));
+    await ins.execute('test2');
+
+    expect($(ins.name)).toBe('hello 2');
+  })
+
+  test('mixin export multiple values', async()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+
+    ins.addMixin(new TestMixin(ins));//null
+    ins.addMixin(new TestMixin2(ins));//hello 2
+    ins.addMixin(new TestMixin4(ins));//null
+    ins.addMixin(new TestMixin2(ins));//hello 2
+    await ins.execute('test2');
+
+    expect(ins.name()).toBe('hello 2');
+    expect(ins.name(true)).toStrictEqual(['hello 2', 'hello 2']);
+  })
+
+  test('header sent in constructor', async ()=>{
+    const ins = new Controller({});
+    ins.allowUnknownAction = true;
+    ins.addMixin(new TestMixin(ins));//null
+    ins.addMixin(new TestMixin2(ins));//hello 2
+    ins.addMixin(new TestMixin4(ins));//null
+    ins.addMixin(new TestMixin2(ins));//hello 2
+
+    ins.forbidden('quit');
+    await ins.execute('test2');
+
+    expect(ins.status).toBe(403);
   })
 });
