@@ -315,4 +315,30 @@ describe('test Controller', () => {
 
     expect(ins.status).toBe(403);
   })
+
+  test('client IP', async ()=>{
+    const c = new Controller({});
+    await c.execute();
+    expect(c.clientIP).toBe('0.0.0.0')
+
+    const c1 = new Controller({headers: {"cf-connecting-ip" : "0.0.0.1"}});
+    await c1.execute();
+    expect(c1.clientIP).toBe('0.0.0.1');
+
+    const c2 = new Controller({headers: {"x-real-ip" : "0.0.0.2"}});
+    await c2.execute();
+    expect(c2.clientIP).toBe('0.0.0.2');
+
+    const c3 = new Controller({headers: {"x-forwarded-for" : "0.0.0.3"}});
+    await c3.execute();
+    expect(c3.clientIP).toBe('0.0.0.3');
+
+    const c4 = new Controller({headers: {"remote_addr" : "0.0.0.4"}});
+    await c4.execute();
+    expect(c4.clientIP).toBe('0.0.0.4');
+
+    const c5 = new Controller({headers: {}, "ip": '0.0.0.5'});
+    await c5.execute();
+    expect(c5.clientIP).toBe('0.0.0.5');
+  })
 });
