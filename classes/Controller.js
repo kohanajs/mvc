@@ -27,6 +27,7 @@ class Controller{
    */
   constructor(request){
     this.request = request;
+    this.clientIP =this.request?.headers['cf-connecting-ip'] || this.request?.headers['x-real-ip'] || this.request?.headers['x-forwarded-for'] || this.request?.headers['remote_addr'] || this.request?.ip || '0.0.0.0';
   }
 
   /**
