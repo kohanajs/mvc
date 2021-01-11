@@ -1,25 +1,38 @@
 /**
- * Copyright (c) 2020 Kojin Nakana
+ * Copyright (c) 2020-2021 Kojin Nakana
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
  */
 const ControllerMixin = require('./ControllerMixin');
-const $ = ref => (typeof ref === 'function')? ref() : ref;
 
 class Controller{
+  /**
+   *
+   * @type {Map}
+   */
+  mixins = new Map();
+
   #headerSent = false;
-  #mixins = [];
 
   //properties
   allowUnknownAction = false;
   request = null;
   error = null;
   body = '';
+  /**
+   *
+   * @type {Object}
+   */
   headers = {};
+  /**
+   *
+   * @type {{name: String, value: String, options: {secure:Boolean, maxAge:Number}}[]} cookies
+   */
   cookies = [];
   status = 200;
+  state = new Map();
 
   /**
    *
@@ -28,70 +41,18 @@ class Controller{
   constructor(request){
     this.request = request;
     this.clientIP = (!this.request?.headers) ? '0.0.0.0' :  (this.request.headers['cf-connecting-ip'] || this.request.headers['x-real-ip'] || this.request.headers['x-forwarded-for'] || this.request.headers['remote_addr'] || this.request.ip);
+    this.state.set('client', this);
   }
 
-  /**
-   *
-   * @param {ControllerMixin} mixin
-   */
-  addMixin(mixin){
-    this.#mixins.push(mixin);
-    this.#merge(mixin.exports);
-    return mixin.exports;
-  }
-
-  #mixinBranches = new Map();
-  /**
-   * merge exports to this controller (append method and properties after add mixin)
-   * @param {object} mixinExport
-   */
-  #merge(mixinExport){
-    //make a copy of mixin exports
-    const exp = Object.assign({}, mixinExport);
-
-    //check mixinExport keys exist,
-    //if exists, branch it
-    Object.keys(exp).forEach(key => {
-      /** if key exist, create a branch
-      //eg: mixinORMRead and mixinHandle both export instance
-      //mixinORMRead.action_read
-      //mixinHandle.action_read_by_handle
-      //controller.action_read_by_handle instance will return () => [()=>undefined, ()=>object]
-      //create a function to find first non-null object
-      **/
-      if(this[key]){
-        //key exists..
-
-        //for first time duplicated key found,
-        if(!this.#mixinBranches.get(key)){
-          const branch = [this[key]];//copy old handler to branch
-          this.#mixinBranches.set(key, branch);
-
-          //handler proxy
-          this[key] = (all = false) => {
-            //branch example , [null, object1, null, object2]
-            //return all, [object1, object2]
-            if(all)return branch.filter(el => ($(el) != null)).map(el => $(el));
-
-            //by cascade rule, return object2
-            for (let i = (branch.length-1); i>=0 ; i--) {
-              const value = $(branch[i]);
-              if(value === null || value === undefined)continue;
-
-              return value;
-            }
-          }
-        }
-
-        this.#mixinBranches.get(key).push(exp[key]);
-        //remove
-        delete exp[key];
-      }
+  static mix(ins, mixins){
+    ins.mixins.set(this, mixins);
+    mixins.forEach(mx =>{
+      mx.init(ins.state);
     });
+  }
 
-    //assign to this controller
-    Object.assign(this, exp);
-    return mixinExport;
+  get(prop){
+    return this.state.get(prop);
   }
 
   getAction() {
@@ -108,8 +69,34 @@ class Controller{
    * @returns {Promise<void>}
    */
   async mixinsAction(fullActionName){
-    for(let i = 0; i< this.#mixins.length; i++){
-      await this.#mixins[i].execute(fullActionName);
+    const mxs = [...this.mixins.values()].flat()
+    for(let i = 0; i< mxs.length; i++){
+      if(this.#headerSent)break;
+      await mxs[i].execute(fullActionName, this.state);
+    }
+  }
+
+  async mixinsBefore(){
+
+    const mxs = [...this.mixins.values()].flat()
+    for(let i = 0; i< mxs.length; i++){
+      if(this.#headerSent)break;
+      await mxs[i].before(this.state);
+    }
+  }
+
+  async mixinsAfter(){
+    const mxs = [...this.mixins.values()].flat()
+    for(let i = 0; i< mxs.length; i++){
+      if(this.#headerSent)break;
+      await mxs[i].after(this.state);
+    }
+  }
+
+  async mixinsExit(){
+    const mxs = [...this.mixins.values()].flat()
+    for(let i = 0; i< mxs.length; i++){
+      await mxs[i].exit(this.state);
     }
   }
 
@@ -139,29 +126,20 @@ class Controller{
 
       //stage 1 : before
       if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].before();
-        }
+        await this.mixinsBefore();
       }
       if(!this.#headerSent) await this.before();
 
       //stage 2 : action
       if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].execute(action);
-        }
+        await this.mixinsAction(action);
       }
 
       if(!this.#headerSent)await this[action]();
 
       //stage 3 : after
       if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].after();
-        }
+        await this.mixinsAfter();
       }
 
       if(!this.#headerSent)await this.after();
@@ -213,9 +191,7 @@ class Controller{
   async exit(code){
     this.#headerSent = true;
     this.status = code;
-    for(let i = 0; i< this.#mixins.length; i++){
-      await this.#mixins[i].exit(code);
-    }
+    await this.mixinsExit();
   }
 
   /**
