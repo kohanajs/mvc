@@ -80,7 +80,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin]);
+        C.mix(this, [TestMixin]);
       }
     }
 
@@ -119,7 +119,7 @@ describe('test Controller', () => {
     class C extends TestController{
       constructor(request) {
         super(request);
-        this.mix([TestMixin]);
+        C.mix(this, [TestMixin]);
       }
     }
     const ins = new C({});
@@ -156,7 +156,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin]);
+        C.mix(this, [TestMixin]);
       }
     }
     const ins = new C({});
@@ -167,7 +167,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2]);
       }
     }
     const ins = new C({});
@@ -182,7 +182,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2]);
       }
     }
 
@@ -197,7 +197,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2]);
       }
     }
 
@@ -216,7 +216,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2]);
       }
     }
 
@@ -234,7 +234,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2]);
       }
     }
 
@@ -250,7 +250,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixinStopAtBefore, TestMixin]);
+        C.mix(this, [TestMixinStopAtBefore, TestMixin]);
       }
     }
 
@@ -265,7 +265,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixinStopAtAction, TestMixin]);
+        C.mix(this, [TestMixinStopAtAction, TestMixin]);
       }
     }
 
@@ -281,7 +281,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixinStopAtAfter, TestMixin]);
+        C.mix(this, [TestMixinStopAtAfter, TestMixin]);
       }
     }
 
@@ -296,7 +296,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin3]);
+        C.mix(this, [TestMixin, TestMixin3]);
       }
     }
     const ins = new C({});
@@ -308,7 +308,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2, TestMixin2]);
       }
     }
 
@@ -323,7 +323,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2, TestMixin4, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2, TestMixin4, TestMixin2]);
       }
     }
 
@@ -338,7 +338,7 @@ describe('test Controller', () => {
     class C extends Controller{
       constructor(request) {
         super(request);
-        this.mix([TestMixin, TestMixin2, TestMixin4, TestMixin2]);
+        C.mix(this, [TestMixin, TestMixin2, TestMixin4, TestMixin2]);
       }
     }
     const ins = new C({});
@@ -400,7 +400,7 @@ describe('test Controller', () => {
         this.value = 0;
         this.foo = false;
         this.bar = false;
-        this.mix([M1]);
+        A.mix(this, [M1]);
       }
       async action_foo() {}
       async action_bar() {}
@@ -409,14 +409,14 @@ describe('test Controller', () => {
     class B extends A{
       constructor(request) {
         super(request);
-        this.mix([M1]);
+        B.mix(this, [M1]);
       }
     }
 
     class C extends B{
       constructor(request) {
         super(request);
-        this.mix([M1, M2]);
+        C.mix(this,[M1, M2]);
       }
     }
     const b0 = new B({});
@@ -451,21 +451,21 @@ describe('test Controller', () => {
       value = 0;
       constructor(request) {
         super(request);
-        this.mix([M1]);
+        A.mix(this, [M1]);
       }
     }
 
     class B extends A{
       constructor(request) {
         super(request);
-        this.mix([M1]);
+        B.mix(this, [M1]);
       }
     }
 
     class C extends B{
       constructor(request) {
         super(request);
-        this.mix([M1])
+        C.mix(this, [M1])
       }
     }
 
