@@ -67,7 +67,7 @@ class MC extends ControllerMixin{
 class CA extends Controller{
   constructor(request) {
     super(request);
-    this.mix([MA])
+    CA.mix(this, [MA])
   }
 }
 
@@ -75,11 +75,34 @@ class CB extends CA{
   async action_a(){}
 }
 
+class CA2 extends Controller{
+  constructor(request) {
+    super(request);
+    CA2.mix(this, [MA,MB]);
+  }
+
+  async action_a() {}
+  async action_b() {}
+}
+
+class CB2 extends CA2{
+  async action_a() {}
+  async action_b() {}
+}
+
+class CB3 extends CA2{
+  constructor(request) {
+    super(request);
+    CB3.mix(this,[MA]);
+  }
+  async action_a() {}
+  async action_b() {}
+}
+
 describe('test Controller', () => {
   test('test simple controller', async ()=>{
-    const c = new Controller({});
+    const c = new CA({});
     c.action_a = async ()=>{}
-    c.mix([MA]);
     expect(c.ma).toBe(1);
     expect(c.mbefore).toBe(0)
     expect(c.mabefore).toBe(0)
@@ -92,9 +115,8 @@ describe('test Controller', () => {
   });
 
   test('test simple controller, action match', async ()=>{
-    const c = new Controller({});
+    const c = new CA({});
     c.action_a = async ()=>{}
-    c.mix([MA]);
     expect(c.ma).toBe(1);
     expect(c.mbefore).toBe(0)
     expect(c.mabefore).toBe(0)
@@ -107,10 +129,8 @@ describe('test Controller', () => {
   });
 
   test('multi mxin', async ()=>{
-    const c = new Controller({});
-    c.action_a = async ()=>{}
-    c.action_b = async ()=>{}
-    c.mix([MA, MB]);
+    const c = new CA2({});
+
     expect(c.ma).toBe(1);
     expect(c.mb).toBe(1);
     expect(c.mabefore).toBe(0)
@@ -130,10 +150,7 @@ describe('test Controller', () => {
   })
 
   test('multi mxin match a', async ()=>{
-    const c = new Controller({});
-    c.action_a = async ()=>{}
-    c.action_b = async ()=>{}
-    c.mix([MA, MB]);
+    const c = new CA2({});
 
     await c.execute('a');
     expect(c.ma).toBe(1);
@@ -146,10 +163,7 @@ describe('test Controller', () => {
   })
 
   test('multi mxin match b', async ()=>{
-    const c = new Controller({});
-    c.action_a = async ()=>{}
-    c.action_b = async ()=>{}
-    c.mix([MA, MB]);
+    const c = new CA2({});
 
     await c.execute('b');
     expect(c.ma).toBe(1);
@@ -190,18 +204,6 @@ describe('test Controller', () => {
   })
 
   test('inherit multi match b', async ()=>{
-    class CA2 extends Controller{
-      constructor(request) {
-        super(request);
-        this.mix([MA,MB]);
-      }
-    }
-
-    class CB2 extends CA2{
-      async action_a() {}
-      async action_b() {}
-    }
-
     const c = new CB2({});
 
     expect(c.ma).toBe(1);
@@ -222,23 +224,7 @@ describe('test Controller', () => {
   })
 
   test('inherit multi multi match a', async ()=>{
-    class CA2 extends Controller{
-      constructor(request) {
-        super(request);
-        CA2.mix(this, [MA,MB]);
-      }
-    }
-
-    class CB2 extends CA2{
-      constructor(request) {
-        super(request);
-        CB2.mix(this,[MA]);
-      }
-      async action_a() {}
-      async action_b() {}
-    }
-
-    const c = new CB2({});
+    const c = new CB3({});
 
     expect(c.ma).toBe(2);
     expect(c.mb).toBe(1);
