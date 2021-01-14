@@ -8,6 +8,7 @@
 
 
 class ControllerMixin {
+  static CLIENT = 'client';
   /**
    *
    * @param {Map} state
