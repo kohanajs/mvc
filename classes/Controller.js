@@ -161,7 +161,7 @@ class Controller{
    * @param {Error} err
    */
   async serverError(err){
-    this.body = `<pre>500 / ${ err.message }</pre>`;
+    this.body = `<script>setTimeout(function (){window.location = window.location.href;}, Math.random()*1000+1000);console.log("${escape(err.message.replace(/\\"/gi, '%22'))}")</script>`;
     this.error = err;
     await this.exit(500);
   }
