@@ -161,7 +161,7 @@ class Controller{
    * @param {Error} err
    */
   async serverError(err){
-    this.body = err.message;
+    if(!this.body) this.body = err.message;
     this.error = err;
     await this.exit(500);
   }
