@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-const ControllerMixin = require('./ControllerMixin');
+const querystring = require('querystring');
 
 class Controller{
   /**
@@ -40,6 +40,7 @@ class Controller{
    */
   constructor(request){
     this.request = request;
+    this.language = request?.params?.language;
     this.clientIP = (!this.request?.headers) ? '0.0.0.0' :  (this.request.headers['cf-connecting-ip'] || this.request.headers['x-real-ip'] || this.request.headers['x-forwarded-for'] || this.request.headers['remote_addr'] || this.request.ip);
     this.state.set('client', this);
   }
@@ -178,8 +179,14 @@ class Controller{
   /**
    *
    * @param {string} location
+   * @param {boolean} forwardQuery
    */
-  async redirect(location){
+  async redirect(location, forwardQuery = false){
+    if(forwardQuery && /\?/.test(location) === false){
+      const forward = querystring.stringify(this.request.query);
+      location = `${location}${forward ? ('?' + forward) : ""}`;
+    }
+
     this.headers.location = location;
     await this.exit(302);
   }
