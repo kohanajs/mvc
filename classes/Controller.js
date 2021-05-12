@@ -5,26 +5,35 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-const querystring = require('querystring');
 
 class Controller{
   /**
    *
-   * @type {Map}
+   * @type {ControllerMixin[]}
    */
-  mixins = new Map();
+  static mixins = [];
+  /**
+   * Use Mixin to extend controller
+   * @param {ControllerMixin[]} mixins
+   * @param {Controller} Base
+   */
+  static mixin(mixins, Base= Controller){
+    const C = class extends Base {};
+    C.mix(mixins);
+    return C;
+  }
+
+  static mix(mixins){
+    this.mixins = this.mixins.concat(mixins);
+  }
 
   #headerSent = false;
+  suppressActionNotFound = false;
 
   //properties
-  allowUnknownAction = false;
   request = null;
   error = null;
   body = '';
-  /**
-   *
-   * @type {Object}
-   */
   headers = {};
   /**
    *
@@ -43,62 +52,12 @@ class Controller{
     this.language = request?.params?.language;
     this.clientIP = (!this.request?.headers) ? '0.0.0.0' :  (this.request.headers['cf-connecting-ip'] || this.request.headers['x-real-ip'] || this.request.headers['x-forwarded-for'] || this.request.headers['remote_addr'] || this.request.ip);
     this.state.set('client', this);
-  }
 
-  static mix(ins, mixins){
-    ins.mixins.set(this, mixins);
-    mixins.forEach(mx =>{
-      mx.init(ins.state);
-    });
+    this.constructor.mixins.forEach(mixin => mixin.init(this.state));
   }
 
   get(prop){
     return this.state.get(prop);
-  }
-
-  getAction() {
-    return this.request.params?.action || 'index';
-  }
-
-  async before(){}
-
-  async after(){}
-
-  /**
-   * Loop the mixins and run the action
-   * @param {string} fullActionName
-   * @returns {Promise<void>}
-   */
-  async mixinsAction(fullActionName){
-    const mxs = [...this.mixins.values()].flat()
-    for(let i = 0; i< mxs.length; i++){
-      if(this.#headerSent)break;
-      await mxs[i].execute(fullActionName, this.state);
-    }
-  }
-
-  async mixinsBefore(){
-
-    const mxs = [...this.mixins.values()].flat()
-    for(let i = 0; i< mxs.length; i++){
-      if(this.#headerSent)break;
-      await mxs[i].before(this.state);
-    }
-  }
-
-  async mixinsAfter(){
-    const mxs = [...this.mixins.values()].flat()
-    for(let i = 0; i< mxs.length; i++){
-      if(this.#headerSent)break;
-      await mxs[i].after(this.state);
-    }
-  }
-
-  async mixinsExit(){
-    const mxs = [...this.mixins.values()].flat()
-    for(let i = 0; i< mxs.length; i++){
-      await mxs[i].exit(this.state);
-    }
   }
 
   /**
@@ -110,40 +69,22 @@ class Controller{
     try{
       //guard check function action_* exist
       const action = 'action_' + (actionName || this.getAction());
+      if(this[action] === undefined) await this.#handleActionNotFound(action);
 
-      if(this.allowUnknownAction && this[action] === undefined){
-        this[action] = async ()=>{};
-      }
-
-      if(this[action] === undefined){
-        await this.notFound(`${ this.constructor.name }::${action} not found`);
-        return {
-          status  : this.status,
-          body    : this.body,
-          headers : this.headers,
-          cookies : this.cookies,
-        };
-      }
+      //stage 0 : setup
+      if(!this.#headerSent) await this.mixinsSetup();
 
       //stage 1 : before
-      if(!this.#headerSent){
-        await this.mixinsBefore();
-      }
+      if(!this.#headerSent) await this.mixinsBefore();
       if(!this.#headerSent) await this.before();
 
       //stage 2 : action
-      if(!this.#headerSent){
-        await this.mixinsAction(action);
-      }
-
-      if(!this.#headerSent)await this[action]();
+      if(!this.#headerSent) await this.mixinsAction(action);
+      if(!this.#headerSent) await this[action]();
 
       //stage 3 : after
-      if(!this.#headerSent){
-        await this.mixinsAfter();
-      }
-
-      if(!this.#headerSent)await this.after();
+      if(!this.#headerSent) await this.mixinsAfter();
+      if(!this.#headerSent) await this.after();
 
     }catch(err){
       await this.serverError(err);
@@ -155,6 +96,68 @@ class Controller{
       headers : this.headers,
       cookies : this.cookies,
     }
+  }
+
+  getAction() {
+    return this.request.params?.action || 'index';
+  }
+
+  async #handleActionNotFound(action){
+    if( this.suppressActionNotFound ){
+      this[action] = async ()=>{};
+      return;
+    }
+
+    await this.notFound(`${ this.constructor.name }::${action} not found`);
+  }
+
+  /**
+   * @async
+   * @callback MixinCallback
+   * @param {ControllerMixin} mixin
+   */
+  /**
+   *
+   * @param {MixinCallback} lambda
+   * @returns {Promise<void>}
+   */
+  async loopMixins(lambda){
+    const mixins = this.constructor.mixins;
+    for(let i = 0; i< mixins.length; i++){
+      if(this.#headerSent)break;
+      await lambda(mixins[i]);
+    }
+  }
+
+  async mixinsSetup(){
+    await this.loopMixins(async mixin => mixin.setup(this.state));
+  }
+
+  async mixinsBefore(){
+    await this.loopMixins(async mixin => mixin.before(this.state));
+  }
+
+  async before(){}
+
+  async mixinsAction(fullActionName){
+    await this.loopMixins(async mixin => mixin.execute(fullActionName, this.state))
+  }
+
+  async action_index(){} //default action index
+
+  async mixinsAfter(){
+    await this.loopMixins(async mixin => mixin.after(this.state));
+  }
+
+  async after(){}
+
+  /**
+   *
+   * @param {string} msg
+   */
+  async notFound(msg= ''){
+    this.body = `404 / ${ msg }`;
+    await this.exit(404);
   }
 
   /**
@@ -169,26 +172,20 @@ class Controller{
 
   /**
    *
-   * @param {string} msg
+   * @param {string} location
    */
-  async notFound(msg= ''){
-    this.body = `404 / ${ msg }`;
-    await this.exit(404);
+  async redirect(location){
+    this.headers.location = location;
+    await this.exit(302);
   }
 
   /**
    *
-   * @param {string} location
-   * @param {boolean} forwardQuery
+   * @param {string} msg
    */
-  async redirect(location, forwardQuery = false){
-    if(forwardQuery && /\?/.test(location) === false){
-      const forward = querystring.stringify(this.request.query);
-      location = `${location}${forward ? ('?' + forward) : ""}`;
-    }
-
-    this.headers.location = location;
-    await this.exit(302);
+  async forbidden(msg= ''){
+    this.body = `403 / ${ msg }`;
+    await this.exit(403);
   }
 
   /**
@@ -201,16 +198,8 @@ class Controller{
     await this.mixinsExit();
   }
 
-  /**
-   *
-   * @param {string} msg
-   */
-  async forbidden(msg= ''){
-    this.body = `403 / ${ msg }`;
-    await this.exit(403);
-  }
-
-  async action_index(){
+  async mixinsExit(){
+    await this.loopMixins(async mixin => mixin.exit(this.state));
   }
 }
 
