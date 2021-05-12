@@ -49,7 +49,7 @@ class Controller{
    */
   constructor(request){
     this.request = request;
-    this.language = request?.params?.language;
+    this.language = request.params?.language;
     this.clientIP = (!this.request?.headers) ? '0.0.0.0' :  (this.request.headers['cf-connecting-ip'] || this.request.headers['x-real-ip'] || this.request.headers['x-forwarded-for'] || this.request.headers['remote_addr'] || this.request.ip);
     this.state.set('client', this);
 
@@ -165,8 +165,8 @@ class Controller{
    * @param {Error} err
    */
   async serverError(err){
-    if(!this.body) this.body = err.message;
     this.error = err;
+    if(!this.body) this.body = err.message;
     await this.exit(500);
   }
 
@@ -193,13 +193,16 @@ class Controller{
    * @param {Number} code
    */
   async exit(code){
-    this.#headerSent = true;
     this.status = code;
+    this.#headerSent = true;
     await this.mixinsExit();
   }
 
   async mixinsExit(){
-    await this.loopMixins(async mixin => mixin.exit(this.state));
+    const mixins = this.constructor.mixins;
+    for(let i = 0; i< mixins.length; i++){
+      await mixins[i].exit(this.state);
+    }
   }
 }
 
