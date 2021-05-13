@@ -6,7 +6,7 @@
  *
  */
 
-class Model{}
+class Model {}
 
 Object.freeze(Model.prototype);
 module.exports = Model;
