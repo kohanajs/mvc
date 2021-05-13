@@ -6,24 +6,25 @@
  *
  */
 
-class View{
-  static defaultViewClass = View;
+class View {
+  static DefaultViewClass = View;
+
   static caches = {}
 
-  static factory(file, data = {}){
-    return new this.defaultViewClass(file, data);
+  static factory(file, data = {}) {
+    return new this.DefaultViewClass(file, data);
   }
 
-  constructor(file, data){
+  constructor(file, data) {
     this.file = file;
     this.data = data;
   }
 
-  async render(){
+  async render() {
     return JSON.stringify(this.data);
   }
 
-  static clearCache(){
+  static clearCache() {
     this.caches = {};
   }
 }
