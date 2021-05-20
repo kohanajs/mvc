@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+const querystring = require('querystring');
 
 class Controller {
   /**
@@ -19,6 +20,10 @@ class Controller {
    */
 
   static mixin(mixins, Base = Controller) {
+    mixins.forEach(mixin => {
+      if (!mixin) throw new Error('mixins is undefined');
+    });
+
     const C = class extends Base {};
     C.mixins = C.mixins.concat(mixins);
     return C;
@@ -203,6 +208,12 @@ class Controller {
   async #mixinsExit() {
     const { mixins } = this.constructor;
     await Promise.all(mixins.map(async mixin => mixin.exit(this.state)));
+  }
+
+  getURLForwardQuery(url) {
+    const qs = querystring.stringify(this.request.query);
+    if (!qs) return url;
+    return `${url}${/\?/.test(url) ? '&' : '?'}${qs}`;
   }
 }
 
