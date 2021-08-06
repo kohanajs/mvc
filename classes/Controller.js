@@ -16,7 +16,8 @@ class Controller {
   /**
    * Use Mixin to extend controller
    * @param {ControllerMixin[]} mixins
-   * @param {Controller} Base
+   * @param {ControllerAdmin} Base
+   * @returns {Controller}
    */
 
   static mixin(mixins, Base = Controller) {
