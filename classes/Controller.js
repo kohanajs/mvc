@@ -1,233 +1,220 @@
 /**
- * Copyright (c) 2020 Kojin Nakana
+ * Copyright (c) 2020-2021 Kojin Nakana
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
  */
-const ControllerMixin = require('./ControllerMixin');
-const $ = ref => (typeof ref === 'function')? ref() : ref;
+const querystring = require('querystring');
 
-class Controller{
+class Controller {
+  /**
+   *
+   * @type {ControllerMixin[]}
+   */
+  static mixins = [];
+  /**
+   * Use Mixin to extend controller
+   * @param {ControllerMixin[]} mixins
+   * @param {ControllerAdmin} Base
+   * @returns {Controller}
+   */
+
+  static mixin(mixins, Base = Controller) {
+    mixins.forEach(mixin => {
+      if (!mixin) throw new Error('mixins is undefined');
+    });
+
+    const C = class extends Base {};
+    C.mixins = C.mixins.concat(mixins);
+    return C;
+  }
+
   #headerSent = false;
-  #mixins = [];
 
-  //properties
-  allowUnknownAction = false;
+  suppressActionNotFound = false;
+
+  // properties
   request = null;
+
   error = null;
+
   body = '';
+
   headers = {};
+
+  /**
+   *
+   * @type {{name: String, value: String, options: {secure:Boolean, maxAge:Number}}[]} cookies
+   */
   cookies = [];
+
   status = 200;
+
+  state = new Map();
 
   /**
    *
    * @param {Request} request
    */
-  constructor(request){
+  constructor(request) {
     this.request = request;
-    this.clientIP = (!this.request?.headers) ? '0.0.0.0' :  (this.request.headers['cf-connecting-ip'] || this.request.headers['x-real-ip'] || this.request.headers['x-forwarded-for'] || this.request.headers['remote_addr'] || this.request.ip);
-  }
+    this.language = request.params?.language;
+    this.clientIP = (!this.request?.headers) ? '0.0.0.0' : (
+      this.request.headers['cf-connecting-ip']
+      || this.request.headers['x-real-ip']
+      || this.request.headers['x-forwarded-for']
+      || this.request.headers.remote_addr
+      || this.request.ip
+    );
+    this.state.set('client', this);
 
-  /**
-   *
-   * @param {ControllerMixin} mixin
-   */
-  addMixin(mixin){
-    this.#mixins.push(mixin);
-    this.#merge(mixin.exports);
-    return mixin.exports;
-  }
-
-  #mixinBranches = new Map();
-  /**
-   * merge exports to this controller (append method and properties after add mixin)
-   * @param {object} mixinExport
-   */
-  #merge(mixinExport){
-    //make a copy of mixin exports
-    const exp = Object.assign({}, mixinExport);
-
-    //check mixinExport keys exist,
-    //if exists, branch it
-    Object.keys(exp).forEach(key => {
-      /** if key exist, create a branch
-      //eg: mixinORMRead and mixinHandle both export instance
-      //mixinORMRead.action_read
-      //mixinHandle.action_read_by_handle
-      //controller.action_read_by_handle instance will return () => [()=>undefined, ()=>object]
-      //create a function to find first non-null object
-      **/
-      if(this[key]){
-        //key exists..
-
-        //for first time duplicated key found,
-        if(!this.#mixinBranches.get(key)){
-          const branch = [this[key]];//copy old handler to branch
-          this.#mixinBranches.set(key, branch);
-
-          //handler proxy
-          this[key] = (all = false) => {
-            //branch example , [null, object1, null, object2]
-            //return all, [object1, object2]
-            if(all)return branch.filter(el => ($(el) != null)).map(el => $(el));
-
-            //by cascade rule, return object2
-            for (let i = (branch.length-1); i>=0 ; i--) {
-              const value = $(branch[i]);
-              if(value === null || value === undefined)continue;
-
-              return value;
-            }
-          }
-        }
-
-        this.#mixinBranches.get(key).push(exp[key]);
-        //remove
-        delete exp[key];
-      }
-    });
-
-    //assign to this controller
-    Object.assign(this, exp);
-    return mixinExport;
-  }
-
-  getAction() {
-    return this.request.params?.action || 'index';
-  }
-
-  async before(){}
-
-  async after(){}
-
-  /**
-   * Loop the mixins and run the action
-   * @param {string} fullActionName
-   * @returns {Promise<void>}
-   */
-  async mixinsAction(fullActionName){
-    for(let i = 0; i< this.#mixins.length; i++){
-      await this.#mixins[i].execute(fullActionName);
-    }
+    this.constructor.mixins.forEach(mixin => mixin.init(this.state));
   }
 
   /**
    *
    * @param {string | null} actionName
-   * @returns {ControllerMixin}
+   * @returns {object}
    */
-  async execute(actionName = null){
-    try{
-      //guard check function action_* exist
-      const action = 'action_' + (actionName || this.getAction());
+  async execute(actionName = null) {
+    try {
+      // guard check function action_* exist
+      const action = `action_${actionName || this.request.params?.action || 'index'}`;
+      if (this[action] === undefined) await this.#handleActionNotFound(action);
 
-      if(this.allowUnknownAction && this[action] === undefined){
-        this[action] = async ()=>{};
-      }
+      // stage 0 : setup
+      if (!this.#headerSent) await this.#mixinsSetup();
 
-      if(this[action] === undefined){
-        await this.notFound(`${ this.constructor.name }::${action} not found`);
-        return {
-          status  : this.status,
-          body    : this.body,
-          headers : this.headers,
-          cookies : this.cookies,
-        };
-      }
+      // stage 1 : before
+      if (!this.#headerSent) await this.#mixinsBefore();
+      if (!this.#headerSent) await this.before();
 
-      //stage 1 : before
-      if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].before();
-        }
-      }
-      if(!this.#headerSent) await this.before();
+      // stage 2 : action
+      if (!this.#headerSent) await this.mixinsAction(action);
+      if (!this.#headerSent) await this[action]();
 
-      //stage 2 : action
-      if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].execute(action);
-        }
-      }
-
-      if(!this.#headerSent)await this[action]();
-
-      //stage 3 : after
-      if(!this.#headerSent){
-        for(let i = 0; i< this.#mixins.length; i++){
-          if(this.#headerSent)break;
-          await this.#mixins[i].after();
-        }
-      }
-
-      if(!this.#headerSent)await this.after();
-
-    }catch(err){
-      await this.serverError(err);
+      // stage 3 : after
+      if (!this.#headerSent) await this.#mixinsAfter();
+      if (!this.#headerSent) await this.after();
+    } catch (err) {
+      await this.#serverError(err);
     }
 
     return {
       status: this.status,
       body: this.body,
-      headers : this.headers,
-      cookies : this.cookies,
+      headers: this.headers,
+      cookies: this.cookies,
+    };
+  }
+
+  async #handleActionNotFound(action) {
+    if (this.suppressActionNotFound) {
+      this[action] = async () => {};
+      return;
     }
+
+    await this.#notFound(`${this.constructor.name}::${action} not found`);
+  }
+
+  /**
+   * @async
+   * @callback MixinCallback
+   * @param {ControllerMixin} mixin
+   */
+  /**
+   *
+   * @param {MixinCallback} lambda
+   * @returns {Promise<void>}
+   */
+  async #loopMixins(lambda) {
+    const { mixins } = this.constructor;
+    for (let i = 0; i < mixins.length; i++) {
+      if (this.#headerSent) break;
+      // eslint-disable-next-line no-await-in-loop
+      await lambda(mixins[i]);
+    }
+  }
+
+  async #mixinsSetup() {
+    await this.#loopMixins(async mixin => mixin.setup(this.state));
+  }
+
+  async #mixinsBefore() {
+    await this.#loopMixins(async mixin => mixin.before(this.state));
+  }
+
+  async before() {}
+
+  async mixinsAction(fullActionName) {
+    await this.#loopMixins(async mixin => mixin.execute(fullActionName, this.state));
+  }
+
+  async action_index() {}
+
+  async #mixinsAfter() {
+    await this.#loopMixins(async mixin => mixin.after(this.state));
+  }
+
+  async after() {}
+
+  /**
+   *
+   * @param {string} msg
+   */
+  async #notFound(msg) {
+    this.body = `404 / ${msg}`;
+    await this.exit(404);
   }
 
   /**
    *
    * @param {Error} err
    */
-  async serverError(err){
-    this.body = `<pre>500 / ${ err.message }</pre>`;
+  async #serverError(err) {
     this.error = err;
+    if (!this.body) this.body = err.message;
     await this.exit(500);
-  }
-
-  /**
-   *
-   * @param {string} msg
-   */
-  async notFound(msg= ''){
-    this.body = `404 / ${ msg }`;
-    await this.exit(404);
   }
 
   /**
    *
    * @param {string} location
    */
-  async redirect(location){
+  async redirect(location) {
     this.headers.location = location;
     await this.exit(302);
   }
 
   /**
    *
-   * @param {Number} code
+   * @param {string} msg
    */
-  async exit(code){
-    this.#headerSent = true;
-    this.status = code;
-    for(let i = 0; i< this.#mixins.length; i++){
-      await this.#mixins[i].exit(code);
-    }
+  async forbidden(msg = '') {
+    this.body = `403 / ${msg}`;
+    await this.exit(403);
   }
 
   /**
    *
-   * @param {string} msg
+   * @param {Number} code
    */
-  async forbidden(msg= ''){
-    this.body = `403 / ${ msg }`;
-    await this.exit(403);
+  async exit(code) {
+    this.status = code;
+    this.#headerSent = true;
+    await this.#mixinsExit();
   }
 
-  async action_index(){
+  async #mixinsExit() {
+    const { mixins } = this.constructor;
+    await Promise.all(mixins.map(async mixin => mixin.exit(this.state)));
+  }
+
+  getURLForwardQuery(url) {
+    const qs = querystring.stringify(this.request.query);
+    if (!qs) return url;
+    return `${url}${/\?/.test(url) ? '&' : '?'}${qs}`;
   }
 }
 

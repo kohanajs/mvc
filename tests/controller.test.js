@@ -1,344 +1,475 @@
-const $ = ref => (typeof ref === 'function')? ref() : ref;
 const Controller = require('../classes/Controller');
 const ControllerMixin = require('../classes/ControllerMixin');
-class TestController extends Controller{
-  async action_error(){}
+
+class TestController extends Controller {
+  // eslint-disable-next-line class-methods-use-this
+  async action_error() {}
 }
 
-class TestMixin extends ControllerMixin{
-  name = null;
-  constructor(client) {
-    super(client);
-
-    this.exports = {
-      foo: 'bar',
-      who: () => this,
-      name: ()=> this.name,
-    }
+class TestMixin extends ControllerMixin {
+  static init(state) {
+    state.set('foo', 'bar');
+    state.set('who', this);
+    state.set('name', this.name);
   }
 
-  async action_error(){
+  static async action_error() {
     throw new Error('Expected Error');
   }
 
-  getThis(){
-    return this;
+  static async action_test1(state) {
+    state.set('name', 'hello 1');
   }
 
-  async action_test1(){
-    this.name = 'hello 1';
-  }
-
-  async action_test3(){
-    this.name = 'ouch 1';
+  static async action_test3(state) {
+    state.set('name', 'ouch 1');
   }
 }
 
-class TestMixin2 extends ControllerMixin{
-  name = null;
-  constructor(client) {
-    super(client);
-
-    this.exports = {
-      name: () => this.name,
-    }
+class TestMixin2 extends ControllerMixin {
+  static async action_test2(state) {
+    state.set('name', 'hello 2');
   }
 
-  async action_test2(){
-    this.name = 'hello 2';
-  }
-
-  async action_test3(){
-    this.name = 'ouch 2';
+  static async action_test3(state) {
+    state.set('name', 'ouch 2');
   }
 }
 
-class TestMixin3 extends ControllerMixin{
-  constructor(client) {
-    super(client);
-
-    this.exports = {
-      foo: 'tar',
-    }
+class TestMixin3 extends ControllerMixin {
+  static async init(state) {
+    state.set('foo', 'tar');
   }
 }
 
-class TestMixin4 extends ControllerMixin{
-  name = null;
-  constructor(client) {
-    super(client);
-
-    this.exports = {
-      name: () => this.name,
-    }
-  }
-
-  async action_test2(){
+class TestMixin4 extends ControllerMixin {
+  static async action_test2() {
   }
 }
 
-class TestMixinStopAtBefore extends ControllerMixin{
-  async before() {
-    this.client.exit(503)
+class TestMixinStopAtBefore extends ControllerMixin {
+  static async before(state) {
+    state.get('client').exit(503);
   }
 }
 
-class TestMixinStopAtAction extends ControllerMixin{
-  async action_test2() {
-    this.client.exit(503)
+class TestMixinStopAtAction extends ControllerMixin {
+  static async action_test2(state) {
+    state.get('client').exit(503);
   }
 }
 
-class TestMixinStopAtAfter extends ControllerMixin{
-  async after() {
-    this.client.exit(503)
+class TestMixinStopAtAfter extends ControllerMixin {
+  static async after(state) {
+    state.get('client').exit(503);
   }
 }
 
 describe('test Controller', () => {
-  test('test prototype pollution', async()=>{
-    Controller.prototype.foo = () => {
-      return 'bar';
-    };
+  beforeEach(() => {
+
+  });
+
+  test('test prototype pollution', async () => {
+    Controller.prototype.foo = () => 'bar';
     const ins = new Controller({});
     expect(ins.foo).toBe(undefined);
   });
 
-  test('add mixin', async() => {
+  test('add mixin', async () => {
+    class C extends Controller.mixin([TestMixin]) {}
+
+    const ins = new C({});
+    expect(ins.state.get('foo')).toBe('bar');
+
+    const ins2 = new Controller({});
+    expect(ins2.state.get('foo')).toBe(undefined);
+  });
+
+  test('get default action', async () => {
+    class C extends Controller {
+      async action_index() {
+        this.body = 'index';
+      }
+    }
+
     const ins = new Controller({});
-    Object.assign(ins, ins.addMixin(new TestMixin(ins)));
-    expect(ins.foo).toBe('bar');
+    await ins.execute();
+    expect(ins.body).toBe('');
+
+    const ins2 = new C({});
+    await ins2.execute();
+    expect(ins2.body).toBe('index');
   });
 
-  test('get action', async()=>{
-    const ins = new Controller({params:{action:'read'}});
-    const action = ins.getAction();
-    expect(action).toBe('read');
+  test('get empty params', async () => {
+    class C extends Controller {
+      async action_index() {
+        this.body = 'index';
+      }
+    }
+
+    const ins = new C({ params: {} });
+    await ins.execute();
+    expect(ins.body).toBe('index');
   });
 
-  test('get default action', async()=>{
-    const ins = new Controller({});
-    const action = ins.getAction();
-    expect(action).toBe('index');
+  test('specific action', async () => {
+    class C extends Controller {
+      async action_hello() {
+        this.body = 'hello';
+      }
+    }
+
+    const ins = new C({ params: {} });
+    await ins.execute('hello');
+    expect(ins.body).toBe('hello');
   });
 
-  test('get empty params', async()=>{
-    const ins = new Controller({params:{}});
-    const action = ins.getAction();
-    expect(action).toBe('index');
+  test('call execture multiple time', async () => {
+    class C extends Controller {
+      count = 0;
+
+      async action_hello() {
+        this.count += 1;
+        this.body = 'hello';
+      }
+    }
+
+    const ins = new C({ params: {} });
+    await ins.execute('hello');
+    expect(ins.body).toBe('hello');
+    expect(ins.count).toBe(1);
+
+    await ins.execute('hello');
+    expect(ins.body).toBe('hello');
+    expect(ins.count).toBe(2);
   });
 
-  test('unknown action', async ()=>{
-    const ins = new Controller({params:{action:'read'}});
+  test('unknown action', async () => {
+    const ins = new Controller({ params: { action: 'read' } });
     await ins.execute();
     expect(ins.status).toBe(404);
   });
 
-  test('server error', async ()=>{
-    const ins = new TestController({});
-    ins.addMixin(new TestMixin(ins));
+  test('server error', async () => {
+    class C extends Controller.mixin([TestMixin], TestController) {
+    }
+    const ins = new C({});
     await ins.execute('error');
     expect(ins.status).toBe(500);
+    expect(ins.body).toBe('Expected Error');
   });
 
-  test('redirect', async() =>{
+  test('server error with body', async () => {
+    class C extends Controller.mixin([TestMixin], TestController) {
+    }
+    const ins = new C({});
+    ins.body = 'hello';
+    await ins.execute('error');
+    expect(ins.status).toBe(500);
+    expect(ins.body).toBe('hello');
+  });
+
+  test('redirect', async () => {
     const ins = new Controller({});
-    ins.redirect('http://example.com');
+    await ins.redirect('http://example.com');
     expect(ins.status).toBe(302);
   });
 
-  test('forbidden', async() =>{
+  test('forbidden', async () => {
     const ins = new Controller({});
-    ins.forbidden('No popo allowed');
+    await ins.forbidden('No popo allowed');
     expect(ins.status).toBe(403);
   });
 
-  test('not found default message', async()=>{
+  test('not found default message', async () => {
     const ins = new Controller({});
-    ins.notFound();
-    expect(ins.body).toBe('404 / ');
+    await ins.execute('not_exist');
+    expect(ins.status).toBe(404);
+    expect(ins.body).toBe('404 / Controller::action_not_exist not found');
   });
 
-  test('forbidden default message', async() =>{
+  test('forbidden default message', async () => {
     const ins = new Controller({});
-    ins.forbidden();
+    await ins.forbidden();
     expect(ins.body).toBe('403 / ');
     expect(ins.status).toBe(403);
   });
 
-  test('mixin this', async() =>{
-    const ins = new Controller({});
-    ins.addMixin(new TestMixin(ins));
-    expect($(ins.who).constructor.name).toBe('TestMixin');
-  })
+  test('mixin this', async () => {
+    class C extends Controller.mixin([TestMixin]) {}
 
-  test('branch mixin result', async()=>{
-    const ins = new Controller({});
-    ins.action_test1 = async()=>{}
+    const ins = new C({});
+    expect(ins.state.get('who').name).toBe('TestMixin');
+  });
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
+  test('branch mixin result', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2]) {}
+
+    const ins = new C({});
+    ins.action_test1 = async () => {};
+
     await ins.execute('test1');
 
-    expect($(ins.name)).toBe('hello 1');
-  })
+    expect(ins.state.get('name')).toBe('hello 1');
+  });
 
-  test('branch mixin result 2', async()=>{
-    const ins = new Controller({});
-    ins.action_test2 = async()=>{}
+  test('branch mixin result 2', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2]) {}
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
+    const ins = new C({});
+    ins.action_test2 = async () => {};
     await ins.execute('test2');
 
-    expect($(ins.name)).toBe('hello 2');
-  })
+    expect(ins.state.get('name')).toBe('hello 2');
+  });
 
-  test('branch mixin result 3', async()=>{
-    const ins = new Controller({});
-    ins.action_test3 = async()=>{}
+  test('branch mixin result 3', async () => {
+    class C extends Controller.mixin([TestMixin3, TestMixin2]) {}
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
+    const ins = new C({});
+    ins.action_test3 = async () => {};
     await ins.execute('test3');
 
-    try{
-      const name = $(ins.name);
-    }catch (e){
+    try {
+      ins.state.get('name');
+    } catch (e) {
       expect(e.message).toBe('conflict mixin export value found: (ouch 2) , (ouch 1)');
     }
-  })
+  });
 
-  test('mixinAction', async ()=>{
-    const ins = new Controller({});
-    ins.action_test4 = async()=>{
-      await ins.mixinsAction('action_test2')
+  test('mixinAction', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2]) {
     }
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
+    const ins = new C({});
+    ins.action_test4 = async () => {
+      await ins.mixinsAction('action_test2');
+    };
+
     await ins.execute('test4');
 
-    expect($(ins.name)).toBe('hello 2');
-  })
+    expect(ins.state.get('name')).toBe('hello 2');
+  });
 
-  test('allow unknown action', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('allow unknown action', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2]) {
+    }
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
+
     await ins.execute('test2');
 
-    expect($(ins.name)).toBe('hello 2');
-  })
+    expect(ins.state.get('name')).toBe('hello 2');
+  });
 
-  test('stop other mixins - before', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('stop other mixins - before', async () => {
+    class C extends Controller.mixin([TestMixinStopAtBefore, TestMixin]) {
+    }
 
-    ins.addMixin(new TestMixinStopAtBefore(ins));
-    ins.addMixin(new TestMixin(ins));
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
     const result = await ins.execute('test2');
 
     expect(result.status).toBe(503);
-  })
+  });
 
-  test('stop other mixins - action', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('stop other mixins - action', async () => {
+    class C extends Controller.mixin([TestMixinStopAtAction, TestMixin]) {
+    }
 
-    ins.addMixin(new TestMixinStopAtAction(ins));
-    ins.addMixin(new TestMixin(ins));
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
+
     const result = await ins.execute('test2');
 
     expect(result.status).toBe(503);
-  })
+  });
 
-  test('stop other mixins - after', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('stop other mixins - after', async () => {
+    class C extends Controller.mixin([TestMixinStopAtAfter, TestMixin]) {
+    }
 
-    ins.addMixin(new TestMixinStopAtAfter(ins));
-    ins.addMixin(new TestMixin(ins));
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
     const result = await ins.execute('test2');
 
     expect(result.status).toBe(503);
-  })
+  });
 
-  test('override mixin export constant', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('override mixin export constant', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin3]) {
+    }
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
+    expect(ins.state.get('foo')).toBe('tar');
+  });
 
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin3(ins));
+  test('mixin override export thrice', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2, TestMixin2]) {
+    }
 
-    expect($(ins.foo)).toBe('tar');
-  })
-
-  test('mixin override export thrice', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
-
-    ins.addMixin(new TestMixin(ins));
-    ins.addMixin(new TestMixin2(ins));
-    ins.addMixin(new TestMixin2(ins));
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
     await ins.execute('test2');
 
-    expect($(ins.name)).toBe('hello 2');
-  })
+    expect(ins.state.get('name')).toBe('hello 2');
+  });
 
-  test('mixin export multiple values', async()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
+  test('mixin export multiple values', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2, TestMixin4, TestMixin2]) {
+    }
 
-    ins.addMixin(new TestMixin(ins));//null
-    ins.addMixin(new TestMixin2(ins));//hello 2
-    ins.addMixin(new TestMixin4(ins));//null
-    ins.addMixin(new TestMixin2(ins));//hello 2
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
     await ins.execute('test2');
 
-    expect(ins.name()).toBe('hello 2');
-    expect(ins.name(true)).toStrictEqual(['hello 2', 'hello 2']);
-  })
+    expect(ins.state.get('name')).toBe('hello 2');
+  });
 
-  test('header sent in constructor', async ()=>{
-    const ins = new Controller({});
-    ins.allowUnknownAction = true;
-    ins.addMixin(new TestMixin(ins));//null
-    ins.addMixin(new TestMixin2(ins));//hello 2
-    ins.addMixin(new TestMixin4(ins));//null
-    ins.addMixin(new TestMixin2(ins));//hello 2
-
-    ins.forbidden('quit');
+  test('header sent in constructor', async () => {
+    class C extends Controller.mixin([TestMixin, TestMixin2, TestMixin4, TestMixin2]) {
+    }
+    const ins = new C({});
+    ins.suppressActionNotFound = true;
+    await ins.forbidden('quit');
     await ins.execute('test2');
 
     expect(ins.status).toBe(403);
-  })
+  });
 
-  test('client IP', async ()=>{
+  test('client IP', async () => {
     const c = new Controller({});
     await c.execute();
-    expect(c.clientIP).toBe('0.0.0.0')
+    expect(c.clientIP).toBe('0.0.0.0');
 
-    const c1 = new Controller({headers: {"cf-connecting-ip" : "0.0.0.1"}});
+    const c1 = new Controller({ headers: { 'cf-connecting-ip': '0.0.0.1' } });
     await c1.execute();
     expect(c1.clientIP).toBe('0.0.0.1');
 
-    const c2 = new Controller({headers: {"x-real-ip" : "0.0.0.2"}});
+    const c2 = new Controller({ headers: { 'x-real-ip': '0.0.0.2' } });
     await c2.execute();
     expect(c2.clientIP).toBe('0.0.0.2');
 
-    const c3 = new Controller({headers: {"x-forwarded-for" : "0.0.0.3"}});
+    const c3 = new Controller({ headers: { 'x-forwarded-for': '0.0.0.3' } });
     await c3.execute();
     expect(c3.clientIP).toBe('0.0.0.3');
 
-    const c4 = new Controller({headers: {"remote_addr" : "0.0.0.4"}});
+    const c4 = new Controller({ headers: { remote_addr: '0.0.0.4' } });
     await c4.execute();
     expect(c4.clientIP).toBe('0.0.0.4');
 
-    const c5 = new Controller({headers: {}, "ip": '0.0.0.5'});
+    const c5 = new Controller({ headers: {}, ip: '0.0.0.5' });
     await c5.execute();
     expect(c5.clientIP).toBe('0.0.0.5');
-  })
+  });
+
+  test('inheritage', async () => {
+    class M1 extends ControllerMixin {
+      static async setup(state) {
+        const client = state.get('client');
+        client.value += 1;
+      }
+
+      static action_foo(state) {
+        const client = state.get('client');
+        client.foo = true;
+      }
+    }
+    class M2 extends ControllerMixin {
+      static async setup(state) {
+        const client = state.get('client');
+        client.value += 1;
+      }
+
+      static action_bar(state) {
+        const client = state.get('client');
+        client.bar = true;
+      }
+    }
+
+    class A extends Controller.mixin([M1]) {
+      value = 0;
+
+      constructor(request) {
+        super(request);
+        this.foo = false;
+        this.bar = false;
+      }
+
+      async action_foo() {
+        this.body = 'foo';
+      }
+
+      async action_bar() {
+        this.body = 'bar';
+      }
+    }
+
+    class B extends Controller.mixin([M1], A) {
+    }
+
+    class C extends Controller.mixin([M1, M2], B) {
+    }
+
+    const b0 = new B({});
+    await b0.execute();
+    expect(b0.value).toBe(2);
+
+    const c0 = new C({});
+    await c0.execute();
+    expect(c0.value).toBe(4);
+
+    const c1 = new C({});
+    await c1.execute();
+    expect(c1.value).toBe(4);
+
+    const b1 = new B({});
+    await b1.execute();
+    expect(b1.value).toBe(2);
+
+    await b0.execute('foo');
+    expect(b0.foo).toBe(true);
+    await b1.execute('bar');
+
+    expect(b1.bar).toBe(false);
+
+    await c0.execute('foo');
+    expect(c0.foo).toBe(true);
+    await c1.execute('bar');
+    expect(c1.bar).toBe(true);
+  });
+
+  test('inheritage form B', async () => {
+    class M1 extends ControllerMixin {
+      static async setup(state) {
+        const client = state.get('client');
+        client.value += 1;
+      }
+    }
+
+    class A extends Controller.mixin([M1]) {
+      value = 0;
+    }
+
+    class B extends Controller.mixin([M1], A) {
+    }
+
+    class C extends Controller.mixin([M1], B) {
+    }
+
+    const c0 = new C({});
+    await c0.execute();
+    expect(c0.value).toBe(3);
+
+    const c1 = new C({});
+    await c1.execute();
+    expect(c1.value).toBe(3);
+
+    const b0 = new B({});
+    await b0.execute();
+    expect(b0.value).toBe(2);
+  });
 });

@@ -6,43 +6,26 @@
  *
  */
 
-class View{
-  static defaultViewClass = View;
+class View {
+  static DefaultViewClass = View;
+
   static caches = {}
-  static globalData = {};
 
-  static factory(file, data){
-    return new View(file, data);
+  static factory(file, data = {}) {
+    return new this.DefaultViewClass(file, data);
   }
 
-  static setGlobal(key, value){
-    View.globalData[key] = value;
-  }
-
-  constructor(file, data, lookupDir){
+  constructor(file, data) {
     this.file = file;
     this.data = data;
-    this.lookupDir = lookupDir;
   }
 
-  async render(){
-    return JSON.stringify(this.collectProps());
+  async render() {
+    return JSON.stringify(this.data);
   }
 
-  //use data object (faster) or direct assign variable to view instances (slower)
-  collectProps(){
-    if(this.data)return Object.assign({}, View.globalData, this.data);
-
-    const props = {};
-    Object.keys(this).forEach(x => {
-      props[x] = this[x];
-    });
-
-    return Object.assign({}, View.globalData, props);
-  }
-
-  static clearCache(){
-    View.caches = {};
+  static clearCache() {
+    this.caches = {};
   }
 }
 

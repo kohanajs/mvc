@@ -1,36 +1,54 @@
 /**
- * Copyright (c) 2020 Kojin Nakana
+ * Copyright (c) 2020-2021 Kojin Nakana
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
  */
 
-
 class ControllerMixin {
+  static CLIENT = 'client';
+
   /**
-   *
-   * @param {Controller} client
+   * init is static function during initialize controller,
+   * should not directly modify controller's property because
+   * it run before concrete controller's constructor
+   * @param {Map} state
    */
-  constructor(client){
-    this.client = client;
-    this.request = client.request;
-    this.exports = {};
-  }
-
-  async before(){}
-  async after(){}
-  async exit(code){}
+  static init(state) {}
 
   /**
-   *
-   * @param {String} action
+   * Setup is initializer for async functions, it run in controller.execute before state
+   * @param state
    * @returns {Promise<void>}
    */
-  async execute(action){
-    if(!this[action])return;
-    await this[action]();
+  static async setup(state) {}
+
+  /**
+   *
+   * @param {Map} state
+   */
+  static async before(state) {}
+
+  /**
+   * @param {String} fullActionName
+   * @param {Map} state
+   */
+  static async execute(fullActionName, state) {
+    if (!this[fullActionName]) return;
+    await this[fullActionName](state);
   }
+
+  /**
+   *
+   * @param {Map} state
+   */
+  static async after(state) {}
+
+  /**
+   * @param {Map} state
+   */
+  static async exit(state) {}
 }
 
 Object.freeze(ControllerMixin.prototype);
