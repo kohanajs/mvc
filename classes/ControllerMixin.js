@@ -8,6 +8,7 @@
 
 class ControllerMixin {
   static CLIENT = 'client';
+  static FULL_ACTION_NAME = 'full_action_name';
 
   /**
    * init is static function during initialize controller,

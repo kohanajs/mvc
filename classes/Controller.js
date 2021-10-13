@@ -41,7 +41,9 @@ class Controller {
 
   body = '';
 
-  headers = {};
+  headers = {
+    "X-Content-Type-Options": "nosniff"
+  };
 
   /**
    *
@@ -81,6 +83,7 @@ class Controller {
     try {
       // guard check function action_* exist
       const action = `action_${actionName || this.request.params?.action || 'index'}`;
+      this.state.set('full_action_name', action);
       if (this[action] === undefined) await this.#handleActionNotFound(action);
 
       // stage 0 : setup
@@ -181,9 +184,15 @@ class Controller {
   /**
    *
    * @param {string} location
+   * @param {boolean} keepQueryString
    */
-  async redirect(location) {
-    this.headers.location = location;
+  async redirect(location, keepQueryString= false) {
+    if(!keepQueryString){
+      this.headers.location = location;
+    }else{
+      const qs = querystring.stringify(this.request.query);
+      this.headers.location = qs ? `${location}${/\?/.test(location) ? '&' : '?'}${qs}` : location;
+    }
     await this.exit(302);
   }
 
@@ -209,12 +218,6 @@ class Controller {
   async #mixinsExit() {
     const { mixins } = this.constructor;
     await Promise.all(mixins.map(async mixin => mixin.exit(this.state)));
-  }
-
-  getURLForwardQuery(url) {
-    const qs = querystring.stringify(this.request.query);
-    if (!qs) return url;
-    return `${url}${/\?/.test(url) ? '&' : '?'}${qs}`;
   }
 }
 
