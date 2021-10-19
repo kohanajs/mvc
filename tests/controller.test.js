@@ -472,4 +472,59 @@ describe('test Controller', () => {
     await b0.execute();
     expect(b0.value).toBe(2);
   });
+
+  test("redirect keep query string", async () => {
+    class TestRedirectController extends Controller {
+      // eslint-disable-next-line class-methods-use-this
+      async action_index() {
+        await c.redirect('https://example.com', true);
+      }
+    }
+
+    const c = new TestRedirectController({query:{utm_source: "test"}});
+    await c.execute();
+
+    expect(c.headers.location).toBe('https://example.com?utm_source=test');
+  })
+
+  test("redirect add query string", async () => {
+    class TestRedirectController extends Controller {
+      // eslint-disable-next-line class-methods-use-this
+      async action_index() {
+        await c.redirect('https://example.com?target=1', true);
+      }
+    }
+
+    const c = new TestRedirectController({query:{utm_source: "test"}});
+    await c.execute();
+
+    expect(c.headers.location).toBe('https://example.com?target=1&utm_source=test');
+  })
+
+  test("redirect without query string", async () => {
+    class TestRedirectController extends Controller {
+      // eslint-disable-next-line class-methods-use-this
+      async action_index() {
+        await c.redirect('https://example.com?target=1', true);
+      }
+    }
+
+    const c = new TestRedirectController({query:{}});
+    await c.execute();
+
+    expect(c.headers.location).toBe('https://example.com?target=1');
+  })
+
+  test('check mixin are all defined', async () => {
+    const FailMixin = null;
+    let isError = false;
+
+    try{
+      Controller.mixin([TestMixin, FailMixin]);
+    }catch(e){
+      isError = true;
+      expect(e.message).toBe('mixins is undefined');
+    }
+    expect(isError).toBe(true);
+  })
 });

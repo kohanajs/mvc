@@ -17,6 +17,6 @@
   },
   "homepage": "https://gitlab.com/kohanajs/core-mvc",
   "devDependencies": {
-    "jest": "^26.6.3"
+    "jest": "^27.3.1"
   }
 }
