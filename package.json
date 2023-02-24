@@ -1,0 +1,27 @@
+{
+  "type": "module",
+  "name": "@kohana/mvc",
+  "version": "1.0.0",
+  "description": "The mvc inspired from PHP's Kohana framework's pattern.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kohanajs/mvc.git"
+  },
+  "author": "Kojin Nakana",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kohanajs/mvc/issues"
+  },
+  "homepage": "https://github.com/kohanajs/mvc#readme",
+  "jest": {
+    "moduleFileExtensions": ["js", "jsx", "ts", "tsx", "mjs", "json"],
+    "transform": {}
+  }
+}
