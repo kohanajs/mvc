@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@kohana/mvc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The mvc inspired from PHP's Kohana framework's pattern.",
   "main": "index.js",
   "directories": {
@@ -21,7 +21,14 @@
   },
   "homepage": "https://github.com/kohanajs/mvc#readme",
   "jest": {
-    "moduleFileExtensions": ["js", "jsx", "ts", "tsx", "mjs", "json"],
+    "moduleFileExtensions": [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "mjs",
+      "json"
+    ],
     "transform": {}
   }
 }
